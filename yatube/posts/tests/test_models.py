@@ -10,19 +10,18 @@ class PostModelTest(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.user = User.objects.create_user(username="tick")
+        cls.user = User.objects.create(username='NoName')
         cls.group = Group.objects.create(
-            title="Тестовая группа",
-            slug="Тестовый слаг",
-            description="Тестовое описание",
+            title='Тестовая группа',
+            slug='Тестовый слаг',
+            description='Тестовое описание',
         )
         cls.post = Post.objects.create(
             author=cls.user,
-            text="Тестовый пост",
+            text='Тестовый пост. Абвгд',
         )
 
     def setUp(self):
-        self.post = PostModelTest.post
         self.group = PostModelTest.group
 
     def test_models_have_correct_object_names(self):
@@ -38,10 +37,10 @@ class PostModelTest(TestCase):
     def test_verbose_name(self):
         """verbose_name в полях совпадает с ожидаемым."""
         field_verboses = {
-            "text": "Текст поста",
-            "pub_date": "Дата публикации",
-            "author": "Автор",
-            "group": "Группа",
+            'text': 'Текст поста',
+            'pub_date': 'Дата публикации',
+            'author': 'Автор',
+            'group': 'Группа',
         }
         for field, expected in field_verboses.items():
             with self.subTest(field=field):
@@ -52,8 +51,8 @@ class PostModelTest(TestCase):
     def test_help_text(self):
         """help_text в полях совпадает с ожидаемым."""
         field_help_texts = {
-            "text": "Введите текст поста",
-            "group": "Группа, к которой будет относиться пост",
+            'text': 'Введите текст поста',
+            'group': 'Группа, к которой будет относиться пост',
         }
         for field, expected in field_help_texts.items():
             with self.subTest(field=field):

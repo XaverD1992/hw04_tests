@@ -11,9 +11,9 @@
           {% include 'includes/error_check.html' %}
 
           {% if is_edit %}
-           <form method="post" action="{% url 'posts:post_edit' post.id %}">
+           <form method="post" enctype="multipart/form-data" action="{% url 'posts:post_edit' post.id %}">
           {% else %}
-           <form method="post" action="{% url 'posts:post_create' %}">
+           <form method="post" enctype="multipart/form-data" action="{% url 'posts:post_create' %}">
           {% endif %}
             {% csrf_token %}          
             {% include 'includes/fields_in_form.html' %} 
