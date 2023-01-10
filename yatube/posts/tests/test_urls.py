@@ -81,14 +81,14 @@ class PostURLTests(TestCase):
     def test_edit_url_redirect_not_author_on_post_detail_url(self):
         """Страница редактирования поста перенаправляет авторизованного
             пользователя при попытке редактирования чужого поста"""
-        self.post = Post.objects.create(
+        post = Post.objects.create(
             author=self.user1,
-            text='Тестовый пост',
+            text='NewТестовый пост',
         )
-        response = self.authorized_client_2.get(f'posts/{self.post.id}/edit/')
+        response = self.authorized_client_2.get(f'/posts/{post.id}/edit/')
         self.assertRedirects(
             response,
-            f'/posts/{self.post.id}/?next=/posts/{self.post.id}/edit/'
+            f'/posts/{post.id}/'
         )
 
     def test_unexisting_page_at_desired_location(self):

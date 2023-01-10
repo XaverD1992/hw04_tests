@@ -27,24 +27,30 @@ class PostPagesTests(TestCase):
             group=cls.group,
         )
         cls.urls = {
-            'index': ('posts:index', 'posts/index.html'),
-            'group_posts': (
+            'index': [
+                'posts:index',
+                None,
+                'posts/index.html'],
+            'group_posts': [
                 'posts:group_posts',
                 {'slug': cls.group.slug},
-                'posts/group_list.html'),
-            'profile': (
+                'posts/group_list.html'],
+            'profile': [
                 'posts:profile',
                 {'username': cls.post.author},
-                'posts/profile.html'),
-            'post_detail': (
+                'posts/profile.html'],
+            'post_detail': [
                 'posts:post_detail',
                 {'post_id': cls.post.id},
-                'posts/post_detail.html'),
-            'post_edit': (
+                'posts/post_detail.html'],
+            'post_edit': [
                 'posts:post_edit',
                 {'post_id': cls.post.id},
-                'posts/create_post.html'),
-            'post_create': ('posts:post_create', 'posts/create_post.html')
+                'posts/create_post.html'],
+            'post_create': [
+                'posts:post_create',
+                None,
+                'posts/create_post.html']
         }
         cls.comment = Comment.objects.create(
             post=cls.post,
@@ -59,8 +65,8 @@ class PostPagesTests(TestCase):
 
     def common_tests_for_fields_of_some_pages(self, response_context, is_page):
         if is_page:
-            self.assertIsInstance(response_context.get("page_obj"), Page)
-            post = response_context.get('object_list')[0]
+            self.assertIsInstance(response_context.get('page_obj'), Page)
+            post = response_context.get('page_obj')[0]
         else:
             post = response_context.get('post')
         self.assertIsInstance(post, Post)
@@ -73,10 +79,10 @@ class PostPagesTests(TestCase):
 
     def test_pages_uses_correct_template(self):
         """URL-адрес использует соответствующий шаблон."""
-        for page_name, tuple in self.urls.items():
-            with self.subTest(tuple=tuple):
-                response = self.authorized_client.get(reverse(page_name))
-                self.assertTemplateUsed(response, tuple[2])
+        for page_name, kwargs, template in self.urls.values():
+            with self.subTest(page_name):
+                response = self.authorized_client.get(reverse(page_name, kwargs=kwargs))
+                self.assertTemplateUsed(response, template)
 
     def test_index_show_correct_context(self):
         """Шаблон index сформирован с правильным контекстом."""
@@ -218,9 +224,9 @@ class PaginatorViewsTest(TestCase):
 
     def test_first_page_contains_ten_records(self):
         response = self.guest_client.get(reverse('posts:index'))
-        self.assertEqual(len(response.context.get('object_list')),
+        self.assertEqual(len(response.context.get('page_obj')),
                          settings.NUMBER_OF_POSTS_PER_PAGE)
 
     def test_second_page_contains_three_records(self):
         response = self.guest_client.get(reverse('posts:index') + '?page=2')
-        self.assertEqual(len(response.context.get('object_list')), 3)
+        self.assertEqual(len(response.context.get('page_obj')), 3)
