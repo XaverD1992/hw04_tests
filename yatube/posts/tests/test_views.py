@@ -81,7 +81,8 @@ class PostPagesTests(TestCase):
         """URL-адрес использует соответствующий шаблон."""
         for page_name, kwargs, template in self.urls.values():
             with self.subTest(page_name):
-                response = self.authorized_client.get(reverse(page_name, kwargs=kwargs))
+                response = self.authorized_client.get(reverse(page_name,
+                                                              kwargs=kwargs))
                 self.assertTemplateUsed(response, template)
 
     def test_index_show_correct_context(self):
