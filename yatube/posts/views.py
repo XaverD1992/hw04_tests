@@ -41,13 +41,11 @@ def post_detail(request, post_id):
     form = CommentForm(request.POST or None)
     post = get_object_or_404(Post.objects.select_related('author', 'group'),
                              pk=post_id)
-    author = post.author
     comments = Comment.objects.filter(post=post)
     context = {
-        'author': author,
         'post': post,
         'form': form,
-        'comments': comments,
+        'comments': comments
     }
     return render(request, 'posts/post_detail.html', context)
 

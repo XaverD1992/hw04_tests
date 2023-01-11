@@ -1,6 +1,8 @@
 from django import forms
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.paginator import Page
 from django.test import Client, TestCase
 from django.urls import reverse
@@ -21,44 +23,58 @@ class PostPagesTests(TestCase):
             slug='test-slug',
             description='Тестовое описание',
         )
-        cls.post = Post.objects.create(
-            author=cls.user,
-            text='Тестовый пост',
-            group=cls.group,
+        cls.small_gif = (
+            b"\x47\x49\x46\x38\x39\x61\x02\x00"
+            b"\x01\x00\x80\x00\x00\x00\x00\x00"
+            b"\xFF\xFF\xFF\x21\xF9\x04\x00\x00"
+            b"\x00\x00\x00\x2C\x00\x00\x00\x00"
+            b"\x02\x00\x01\x00\x00\x02\x02\x0C"
+            b"\x0A\x00\x3B"
         )
-        cls.urls = {
+        cls.uploaded = SimpleUploadedFile(
+            name='small.gif',
+            content=cls.small_gif,
+            content_type='image/gif'
+        )
+
+    def setUp(self):
+        self.post = Post.objects.create(
+            author=self.user,
+            text='Тестовый пост',
+            group=self.group,
+            image=self.uploaded
+        )
+        self.comment = Comment.objects.create(
+            post=self.post,
+            author=self.user,
+            text='Тестовый комментарий',
+        )
+        self.urls = {
             'index': [
                 'posts:index',
                 None,
                 'posts/index.html'],
             'group_posts': [
                 'posts:group_posts',
-                {'slug': cls.group.slug},
+                {'slug': self.group.slug},
                 'posts/group_list.html'],
             'profile': [
                 'posts:profile',
-                {'username': cls.post.author},
+                {'username': self.post.author},
                 'posts/profile.html'],
             'post_detail': [
                 'posts:post_detail',
-                {'post_id': cls.post.id},
+                {'post_id': self.post.id},
                 'posts/post_detail.html'],
             'post_edit': [
                 'posts:post_edit',
-                {'post_id': cls.post.id},
+                {'post_id': self.post.id},
                 'posts/create_post.html'],
             'post_create': [
                 'posts:post_create',
                 None,
                 'posts/create_post.html']
         }
-        cls.comment = Comment.objects.create(
-            post=cls.post,
-            author=cls.user,
-            text="Тестовый комментарий",
-        )
-
-    def setUp(self):
         self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client.force_login(PostPagesTests.user)
@@ -73,9 +89,11 @@ class PostPagesTests(TestCase):
         post_text_0 = post.text
         post_group_0 = post.group
         post_author_0 = post.author
+        post_image_0 = post.image
         self.assertEqual(post_text_0, self.post.text)
         self.assertEqual(post_group_0, self.post.group)
         self.assertEqual(post_author_0, self.post.author)
+        self.assertEqual(post_image_0, self.post.image)
 
     def test_pages_uses_correct_template(self):
         """URL-адрес использует соответствующий шаблон."""
@@ -112,8 +130,6 @@ class PostPagesTests(TestCase):
             reverse('posts:post_detail', kwargs={'post_id': self.post.id})
         )
         self.common_tests_for_fields_of_some_pages(response.context, False)
-        self.assertEqual(response.context.get('author'), self.post.author)
-        self.assertEqual(response.context.get('post'), self.post)
 
     def test_create_edit_show_correct_context(self):
         """Шаблон create_edit сформирован с правильным контекстом."""
@@ -127,8 +143,8 @@ class PostPagesTests(TestCase):
         for value, expected in form_fields.items():
             with self.subTest(value=value):
                 form = response.context.get('form')
-                form_field = response.context.get('form').fields[value]
                 self.assertIsInstance(form, PostForm)
+                form_field = form.fields[value]
                 self.assertIsInstance(form_field, expected)
 
     def test_create_show_correct_context(self):
@@ -141,8 +157,8 @@ class PostPagesTests(TestCase):
         for value, expected in form_fields.items():
             with self.subTest(value=value):
                 form = response.context.get('form')
-                form_field = response.context['form'].fields[value]
                 self.assertIsInstance(form, PostForm)
+                form_field = form.fields[value]
                 self.assertIsInstance(form_field, expected)
 
     def test_check_group_in_pages(self):
@@ -151,20 +167,16 @@ class PostPagesTests(TestCase):
             text='Тестовый текст проверка как добавился',
             author=self.user,
             group=self.group)
-        response_index = self.authorized_client.get(
-            reverse('posts:index'))
-        response_group = self.authorized_client.get(
-            reverse('posts:group_posts',
-                    kwargs={'slug': f'{self.group.slug}'}))
-        response_profile = self.authorized_client.get(
-            reverse('posts:profile',
-                    kwargs={'username': f'{self.user.username}'}))
-        index = response_index.context.get('page_obj')
-        group = response_group.context.get('page_obj')
-        profile = response_profile.context.get('page_obj')
-        self.assertIn(self.post, index, 'поста нет на главной')
-        self.assertIn(self.post, group, 'поста нет в профиле')
-        self.assertIn(self.post, profile, 'поста нет в группе')
+        pages = [
+            '/',
+            f'/group/{self.group.slug}/',
+            f'/profile/{self.user}/',
+        ]
+        for adress in pages:
+            with self.subTest(adress):
+                response = self.authorized_client.get(adress)
+                context = response.context.get('page_obj')
+                self.assertIn(self.post, context)
 
     def test_check_group_not_in_mistake_group_list_page(self):
         """Проверяем, чтобы созданный Пост с группой
@@ -194,15 +206,42 @@ class PostPagesTests(TestCase):
                               kwargs={'post_id': self.post.id})
         )
         self.assertEqual(Comment.objects.count(), comments_count + 1)
-        self.assertTrue(Comment.objects.filter(text='Тестовый коммент').
+        self.assertTrue(Comment.objects.filter(text=form_data_1['text']).
                         exists())
 
     def test_check_cache(self):
         """Проверка кеша."""
+        self.post = Post.objects.create(text='Тестовый текст 3',
+                                        author=self.user,
+                                        group=self.group)
         response = self.guest_client.get(reverse('posts:index'))
-        Post.objects.get(id=1).delete()
+        Post.objects.get(text='Тестовый текст 3').delete()
         response_2 = self.guest_client.get(reverse('posts:index'))
         self.assertEqual(response.content, response_2.content)
+        cache.clear()
+        response_3 = self.guest_client.get(reverse('posts:index'))
+        self.assertNotEqual(response.content, response_3.content)
+
+    def test_image_in_index_and_profile_page(self):
+        """Картинка передается на страницу group_posts, index, profile."""
+        templates = (
+            reverse('posts:index'),
+            reverse('posts:profile', kwargs={'username': self.post.author}),
+            reverse('posts:group_posts', kwargs={'slug': self.group.slug})
+        )
+        for url in templates:
+            with self.subTest(url):
+                response = self.guest_client.get(url)
+                self.common_tests_for_fields_of_some_pages(response.context,
+                                                           True)
+
+    def test_image_in_post_detail_page(self): 
+        """Картинка передается на страницу post_detail.""" 
+        response = self.guest_client.get( 
+            reverse('posts:post_detail', kwargs={'post_id': self.post.id}) 
+        ) 
+        self.common_tests_for_fields_of_some_pages(response.context,
+                                                           False)
 
 
 class PaginatorViewsTest(TestCase):
@@ -213,8 +252,9 @@ class PaginatorViewsTest(TestCase):
         cls.group = Group.objects.create(title='Тестовая группа',
                                          slug='test_group',
                                          description='Тестовое описание')
+        cls.REMAINDER = 3
         posts: list = []
-        for i in range(settings.NUMBER_OF_POSTS_PER_PAGE + 3):
+        for i in range(settings.NUMBER_OF_POSTS_PER_PAGE + cls.REMAINDER):
             posts.append(Post(text=f'Тестовый текст {i}',
                               group=cls.group,
                               author=cls.user))
@@ -230,4 +270,4 @@ class PaginatorViewsTest(TestCase):
 
     def test_second_page_contains_three_records(self):
         response = self.guest_client.get(reverse('posts:index') + '?page=2')
-        self.assertEqual(len(response.context.get('page_obj')), 3)
+        self.assertEqual(len(response.context.get('page_obj')), self.REMAINDER)
