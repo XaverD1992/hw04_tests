@@ -235,13 +235,13 @@ class PostPagesTests(TestCase):
                 self.common_tests_for_fields_of_some_pages(response.context,
                                                            True)
 
-    def test_image_in_post_detail_page(self): 
-        """Картинка передается на страницу post_detail.""" 
-        response = self.guest_client.get( 
-            reverse('posts:post_detail', kwargs={'post_id': self.post.id}) 
-        ) 
+    def test_image_in_post_detail_page(self):
+        """Картинка передается на страницу post_detail."""
+        response = self.guest_client.get(
+            reverse('posts:post_detail', kwargs={'post_id': self.post.id})
+        )
         self.common_tests_for_fields_of_some_pages(response.context,
-                                                           False)
+                                                   False)
 
 
 class PaginatorViewsTest(TestCase):
