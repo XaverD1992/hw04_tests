@@ -5,7 +5,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from ..models import Group, Post, User
+from ..models import Group, Post, Comment, User
 
 User = get_user_model()
 
@@ -102,3 +102,34 @@ class PostFormTests(TestCase):
             data=form_data,
             follow=True)
         self.assertEqual(response.status_code, HTTPStatus.OK)
+
+    def test_comment_correct_context(self):
+        """Авторизованный пользователь может создать комментарий и он появится
+           на странице поста."""
+        comments_count = Comment.objects.count()
+        form_data_1 = {'text': 'Тестовый коммент'}
+        response = self.authorized_client.post(
+            reverse('posts:add_comment', kwargs={'post_id': self.post.id}),
+            data=form_data_1,
+            follow=True,
+        )
+        self.assertRedirects(
+            response, reverse('posts:post_detail',
+                              kwargs={'post_id': self.post.id})
+        )
+        self.assertEqual(Comment.objects.count(), comments_count + 1)
+        self.assertTrue(Comment.objects.filter(text=form_data_1['text']).
+                        exists())
+
+    def test_comment_correct_context(self):
+        """Неавторизованный пользователь не может создать комментарий."""
+        comments_count = Comment.objects.count()
+        form_data_2 = {'text': 'Тестовый коммент_2'}
+        self.guest_client.post(
+            reverse('posts:add_comment', kwargs={'post_id': self.post.id}),
+            data=form_data_2,
+            follow=True,
+        )
+        self.assertEqual(Comment.objects.count(), comments_count)
+        self.assertFalse(Comment.objects.filter(text=form_data_2['text']).
+                         exists())

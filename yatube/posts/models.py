@@ -38,7 +38,8 @@ class Post(models.Model):
     image = models.ImageField(
         'Картинка',
         upload_to='posts/',
-        blank=True
+        blank=True,
+        help_text='Загрузить картинку'
     )
 
     class Meta:
@@ -74,4 +75,17 @@ class Comment(models.Model):
         ordering = ["-created"]
 
     def __str__(self):
-        return self.text
+        return self.text[:15]
+
+
+class Follow(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="follower"
+    )
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="following"
+    )
